@@ -1,0 +1,35 @@
+{
+  "manifest_version": "stage2_base_v1",
+  "seed": 424242,
+  "simulated_clock": "2026-07-01T00:00:00Z",
+  "rules_version": "refund_rules_v1",
+  "data_range": {
+    "start": "2026-06-24T00:00:00Z",
+    "end": "2026-07-01T00:00:00Z"
+  },
+  "counts": {
+    "stores": 2,
+    "products": 4,
+    "skus": 8,
+    "inventories": 8,
+    "orders": 24,
+    "order_items": 24,
+    "logistics": 24,
+    "refunds": 6,
+    "sales_daily": 14,
+    "campaigns": 2,
+    "principals": 6,
+    "knowledge_documents": 3,
+    "knowledge_chunks": 4,
+    "sops": 2
+  },
+  "policy_version": "policy_v1",
+  "sop_version": "sop_v1",
+  "enabled_scenarios": [
+    "stockout_spike",
+    "refund_spike",
+    "logistics_delay",
+    "conversion_drop",
+    "live_campaign"
+  ]
+}

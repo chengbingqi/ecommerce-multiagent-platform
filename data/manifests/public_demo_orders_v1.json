@@ -1,0 +1,50 @@
+{
+  "manifest_version": "public_demo_orders_v1",
+  "source_manifest_version": "stage2_base_v1",
+  "allowed_store_ids": [
+    "b39e17d7-c6aa-5aaf-adfc-b84c80d0f8f1"
+  ],
+  "operations_store_id": "b39e17d7-c6aa-5aaf-adfc-b84c80d0f8f1",
+  "orders": [
+    {
+      "demo_case_id": "normal_order",
+      "order_id": "558f22a4-e1fb-5f6a-992a-7cd07b88be01",
+      "store_id": "b39e17d7-c6aa-5aaf-adfc-b84c80d0f8f1",
+      "safe_label": "正常订单演示｜已送达",
+      "scenario_description": "该订单可用于演示订单状态查询。",
+      "expected_read_only_capability": ["get_order"]
+    },
+    {
+      "demo_case_id": "normal_logistics",
+      "order_id": "82a48e76-458b-5cd8-a137-32a3bcad6cf4",
+      "store_id": "b39e17d7-c6aa-5aaf-adfc-b84c80d0f8f1",
+      "safe_label": "正常物流演示｜运输中",
+      "scenario_description": "该订单可用于演示订单查询和正常物流状态。",
+      "expected_read_only_capability": ["get_order", "get_logistics"]
+    },
+    {
+      "demo_case_id": "logistics_delay",
+      "order_id": "335bf907-4735-5b70-bb39-0f30b05ea09c",
+      "store_id": "b39e17d7-c6aa-5aaf-adfc-b84c80d0f8f1",
+      "safe_label": "物流延迟演示｜运输中",
+      "scenario_description": "该订单可用于演示基于预计送达时间的物流延迟分析。",
+      "expected_read_only_capability": ["get_order", "get_logistics"]
+    },
+    {
+      "demo_case_id": "refund_eligible",
+      "order_id": "5d3b3e98-f5eb-546c-b2b8-a2e5419406aa",
+      "store_id": "b39e17d7-c6aa-5aaf-adfc-b84c80d0f8f1",
+      "safe_label": "符合退款资格演示",
+      "scenario_description": "该订单可用于演示只读退款资格判断，不会创建退款申请。",
+      "expected_read_only_capability": ["check_refund_eligibility"]
+    },
+    {
+      "demo_case_id": "refund_ineligible",
+      "order_id": "8be45ab4-8f94-5c6a-88a9-a0f82fee6cf3",
+      "store_id": "b39e17d7-c6aa-5aaf-adfc-b84c80d0f8f1",
+      "safe_label": "不符合退款资格演示",
+      "scenario_description": "该订单可用于演示不符合退款资格的只读分支。",
+      "expected_read_only_capability": ["check_refund_eligibility"]
+    }
+  ]
+}
