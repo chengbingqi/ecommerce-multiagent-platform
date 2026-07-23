@@ -1,0 +1,355 @@
+name: ecommerce-multiagent-platform
+
+x-service-defaults: &service-defaults
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+services:
+  postgres:
+    <<: *service-defaults
+    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ecommerce_agent}
+      POSTGRES_USER: ${POSTGRES_USER:-ecommerce_agent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-CHANGE_ME}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - type: bind
+        source: ${DATA_ROOT:?Set DATA_ROOT to an external data directory}/postgres
+        target: /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 4G
+    networks:
+      - backend
+
+  redis:
+    <<: *service-defaults
+    image: redis:7-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-CHANGE_ME}
+    command: ["sh", "-c", "exec redis-server --appendonly yes --requirepass \"$$REDIS_PASSWORD\""]
+    volumes:
+      - type: bind
+        source: ${DATA_ROOT:?Set DATA_ROOT to an external data directory}/redis
+        target: /data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping 2>/dev/null | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+    networks:
+      - backend
+
+  api:
+    <<: *service-defaults
+    user: "${PROJECT_UID:-1002}:${PROJECT_GID:-1002}"
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ecommerce_agent}:${POSTGRES_PASSWORD:-CHANGE_ME}@postgres:5432/${POSTGRES_DB:-ecommerce_agent}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-CHANGE_ME}@redis:6379/0
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      DEEPSEEK_BASE_URL: ${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      DEEPSEEK_MODEL: ${DEEPSEEK_MODEL:-deepseek-v4-flash}
+      LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-20}
+      LLM_MAX_TOKENS: ${LLM_MAX_TOKENS:-512}
+      LLM_TEMPERATURE: ${LLM_TEMPERATURE:-0.1}
+      LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-1}
+      LLM_MAX_CALLS_PER_RUN: ${LLM_MAX_CALLS_PER_RUN:-3}
+      AGENT_MAX_STEPS: ${AGENT_MAX_STEPS:-12}
+      AGENT_DEADLINE_SECONDS: ${AGENT_DEADLINE_SECONDS:-25}
+      ORCHESTRATOR_MAX_SUBTASKS: ${ORCHESTRATOR_MAX_SUBTASKS:-3}
+      ORCHESTRATOR_MAX_HOPS: ${ORCHESTRATOR_MAX_HOPS:-1}
+      ORCHESTRATOR_MAX_STEPS: ${ORCHESTRATOR_MAX_STEPS:-16}
+      ORCHESTRATOR_DEADLINE_SECONDS: ${ORCHESTRATOR_DEADLINE_SECONDS:-55}
+      ORCHESTRATOR_SUBTASK_TIMEOUT_SECONDS: ${ORCHESTRATOR_SUBTASK_TIMEOUT_SECONDS:-20}
+      ORCHESTRATOR_ROUTE_VERSION: ${ORCHESTRATOR_ROUTE_VERSION:-orchestrator_route_v1.0.0}
+      ORCHESTRATOR_PLAN_VERSION: ${ORCHESTRATOR_PLAN_VERSION:-orchestrator_plan_v1.0.0}
+      AGENT_LLM_MODE: ${AGENT_LLM_MODE:-fake}
+      ENABLE_DEV_PRINCIPAL_INPUT: ${ENABLE_DEV_PRINCIPAL_INPUT:-true}
+      BUSINESS_MCP_URL: http://business-mcp:8101/mcp
+      KNOWLEDGE_MCP_URL: http://knowledge-mcp:8102/mcp
+      MEDIA_MCP_URL: http://media-mcp:8103/mcp
+      MEDIA_ENABLED: "true"
+      DATA_ROOT: /data
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-CHANGE_ME}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-CHANGE_ME}
+      MINIO_SECURE: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health/live', timeout=2)"
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+    networks:
+      - backend
+      - ingress
+
+  frontend:
+    <<: *service-defaults
+    image: node:22-alpine
+    working_dir: /app
+    command: ["npm", "run", "dev"]
+    depends_on:
+      api:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
+    networks:
+      - ingress
+
+  edge:
+    <<: *service-defaults
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN:-example.invalid}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:2019/config/"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+    networks:
+      - ingress
+
+  business-mcp:
+    <<: *service-defaults
+    profiles: ["stage2", "stage3", "stage4", "stage5"]
+    image: ecommerce-multiagent-mcp:1.1.1-security
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.mcp
+    command: ["python", "-m", "mcp_servers.business.server"]
+    environment: &mcp-environment
+      APP_ENV: ${APP_ENV:-development}
+      SERVICE_ROLE: mcp
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ecommerce_agent}:${POSTGRES_PASSWORD:-CHANGE_ME}@postgres:5432/${POSTGRES_DB:-ecommerce_agent}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-CHANGE_ME}@redis:6379/0
+      MCP_PORT: "8101"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose: ["8101"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8101/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
+    networks:
+      - backend
+
+  knowledge-mcp:
+    <<: *service-defaults
+    profiles: ["stage2", "stage3", "stage4", "stage5"]
+    image: ecommerce-multiagent-mcp:1.1.1-security
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.mcp
+    command: ["python", "-m", "mcp_servers.knowledge.server"]
+    environment:
+      <<: *mcp-environment
+      MCP_PORT: "8102"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose: ["8102"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8102/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
+    networks:
+      - backend
+
+  media-mcp:
+    <<: *service-defaults
+    profiles: ["stage2", "stage3", "stage4", "stage5"]
+    image: ecommerce-multiagent-mcp:1.1.1-security
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.mcp
+    command: ["python", "-m", "mcp_servers.media.server"]
+    environment:
+      <<: *mcp-environment
+      MCP_PORT: "8103"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose: ["8103"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8103/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
+    networks:
+      - backend
+
+  minio:
+    <<: *service-defaults
+    user: "${PROJECT_UID:-1002}:${PROJECT_GID:-1002}"
+    profiles: ["stage5"]
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z@sha256:a1a8bd4ac40ad7881a245bab97323e18f971e4d4cba2c2007ec1bedd21cbaba2
+    command: ["server", "/data"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-CHANGE_ME}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-CHANGE_ME}
+    volumes:
+      - type: bind
+        source: ${DATA_ROOT:?Set DATA_ROOT to an external data directory}/minio
+        target: /data
+    expose: ["9000"]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 30
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2G
+    networks:
+      - backend
+
+  worker-media:
+    <<: *service-defaults
+    user: "${PROJECT_UID:-1002}:${PROJECT_GID:-1002}"
+    profiles: ["stage5"]
+    image: ecommerce-multiagent-worker-media:1.1.1-security
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker-media
+    environment:
+      APP_ENV: ${APP_ENV:-development}
+      SERVICE_ROLE: media_worker
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-ecommerce_agent}:${POSTGRES_PASSWORD:-CHANGE_ME}@postgres:5432/${POSTGRES_DB:-ecommerce_agent}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-CHANGE_ME}@redis:6379/0
+      DATA_ROOT: /data
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-CHANGE_ME}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-CHANGE_ME}
+      MINIO_SECURE: "false"
+      ASR_MODEL: Systran/faster-whisper-large-v3
+      ASR_MODEL_ID: large-v3
+      ASR_MODEL_VERSION: edaa852ec7e145841d8ffdb056a99866b5f0a478
+      ASR_MODEL_REVISION: edaa852ec7e145841d8ffdb056a99866b5f0a478
+      ASR_MODEL_PATH: /data/models/asr/large-v3-edaa852ec7e145841d8ffdb056a99866b5f0a478
+      ASR_DEVICE: cuda
+      ASR_DEVICE_INDEX: "0"
+      ASR_COMPUTE_TYPE: float16
+      ASR_CPU_THREADS: "8"
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+      CUDA_VISIBLE_DEVICES: "0"
+      MEDIA_WORKER_CONCURRENCY: "1"
+      MEDIA_ENABLED: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ${DATA_ROOT:?Set DATA_ROOT to an external data directory}/temp
+        target: /data/temp
+      - type: bind
+        source: ${DATA_ROOT:?Set DATA_ROOT to an external data directory}/models/asr/large-v3-edaa852ec7e145841d8ffdb056a99866b5f0a478
+        target: /data/models/asr/large-v3-edaa852ec7e145841d8ffdb056a99866b5f0a478
+        read_only: true
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.worker.celery_app:celery_app inspect ping -d celery@$$HOSTNAME --timeout=2 | grep -q pong"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: "8.0"
+          memory: 10G
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids:
+                - "${MEDIA_GPU_DEVICE_ID:?Set MEDIA_GPU_DEVICE_ID to the allocated GPU UUID}"
+              capabilities:
+                - gpu
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+    internal: true
+  ingress:
+    driver: bridge

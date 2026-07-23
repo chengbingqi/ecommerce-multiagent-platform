@@ -1,0 +1,11 @@
+[Unit]
+Description=Ecommerce Stage7 external backup
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/code/ecommerce-multiagent-platform
+EnvironmentFile=%h/.config/ecommerce-stage7/backup.env
+ExecStart=%h/code/ecommerce-multiagent-platform/deploy/backup/backup_postgres.sh ${EXTERNAL_BACKUP_TARGET}
+ExecStart=%h/code/ecommerce-multiagent-platform/deploy/backup/backup_config.sh ${EXTERNAL_BACKUP_TARGET}
+NoNewPrivileges=true
+PrivateTmp=true

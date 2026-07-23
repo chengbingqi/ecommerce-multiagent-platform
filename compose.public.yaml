@@ -1,0 +1,47 @@
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:2026.7.2@sha256:4f6655284ab3d252b7f28fedb19fe6c8fc82ee5b1295c20ac74d475e5398a52d
+    command:
+      - tunnel
+      - --no-autoupdate
+      - run
+      - --token-file
+      - /run/secrets/cloudflare_tunnel_token
+    depends_on:
+      edge:
+        condition: service_healthy
+    secrets: [cloudflare_tunnel_token]
+    restart: always
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    init: true
+    cpus: "0.5"
+    mem_limit: 256m
+    mem_reservation: 64m
+    pids_limit: 128
+    stop_grace_period: 20s
+    ulimits:
+      nofile:
+        soft: 16384
+        hard: 16384
+      nproc: 512
+    read_only: true
+    tmpfs: ["/tmp:size=32m,mode=1770"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: [tunnel_net]
+
+  edge:
+    networks:
+      tunnel_net: {}
+
+networks:
+  tunnel_net:
+    driver: bridge
+
+secrets:
+  cloudflare_tunnel_token:
+    file: ./secrets/production/cloudflare_tunnel_token

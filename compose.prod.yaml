@@ -1,0 +1,383 @@
+services:
+  postgres:
+    restart: always
+    deploy:
+      resources:
+        limits: !reset null
+    init: true
+    cpus: "2.0"
+    mem_limit: 4g
+    mem_reservation: 1g
+    pids_limit: 256
+    stop_grace_period: 45s
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      nproc: 4096
+    environment:
+      POSTGRES_PASSWORD: !reset null
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets:
+      - postgres_password
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+      - /var/run/postgresql:size=32m,mode=1775
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    cap_add: ["CHOWN", "DAC_OVERRIDE", "FOWNER", "SETGID", "SETUID"]
+    networks: !override
+      - data_net
+
+  redis:
+    restart: always
+    deploy:
+      resources:
+        limits: !reset null
+    init: true
+    cpus: "1.0"
+    mem_limit: 1g
+    mem_reservation: 256m
+    pids_limit: 128
+    stop_grace_period: 20s
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      nproc: 1024
+    environment:
+      REDIS_PASSWORD: !reset null
+    command:
+      - sh
+      - -ec
+      - exec redis-server --appendonly yes --requirepass "$$(cat /run/secrets/redis_password)"
+    secrets:
+      - redis_password
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$(cat /run/secrets/redis_password)\" ping 2>/dev/null | grep -q PONG"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: !override
+      - data_net
+
+  api:
+    restart: always
+    image: ecommerce-multiagent-api:stage7-security-20260722
+    deploy:
+      resources:
+        limits: !reset null
+    init: true
+    cpus: "2.0"
+    mem_limit: 2g
+    mem_reservation: 512m
+    pids_limit: 512
+    stop_grace_period: 30s
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      nproc: 2048
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --proxy-headers
+      - --forwarded-allow-ips
+      - 172.31.71.2
+    environment:
+      APP_ENV: production
+      AGENT_LLM_MODE: deepseek
+      ENABLE_DEV_PRINCIPAL_INPUT: "false"
+      ENFORCE_STAGE7_SECURITY: "true"
+      PUBLIC_DEMO_ACCOUNT_RUNS_PER_DAY: "20"
+      PUBLIC_DEMO_GLOBAL_CONCURRENT_RUNS: "1"
+      PUBLIC_DEMO_MODEL_DAILY: "20"
+      DATABASE_URL: !reset null
+      DATABASE_URL_FILE: /run/secrets/database_url
+      REDIS_URL: !reset null
+      REDIS_URL_FILE: /run/secrets/redis_url
+      DEEPSEEK_API_KEY: !reset null
+      DEEPSEEK_API_KEY_FILE: /run/secrets/deepseek_api_key
+      MINIO_ACCESS_KEY: !reset null
+      MINIO_ACCESS_KEY_FILE: /run/secrets/minio_api_access_key
+      MINIO_SECRET_KEY: !reset null
+      MINIO_SECRET_KEY_FILE: /run/secrets/minio_api_secret_key
+      SESSION_SECRET_FILE: /run/secrets/session_secret
+      CSRF_SECRET_FILE: /run/secrets/csrf_secret
+      SESSION_COOKIE_NAME: __Host-ecom_session
+      SECURE_SESSION_COOKIE: "true"
+      PUBLIC_BASE_URL: https://${PUBLIC_DOMAIN:-stage7.invalid}
+      ALLOWED_HOSTS: ${PUBLIC_DOMAIN:-stage7.invalid}
+      ALLOWED_ORIGINS: https://${PUBLIC_DOMAIN:-stage7.invalid}
+      TRUSTED_PROXY_CIDRS: 172.31.71.2/32
+    secrets:
+      - database_url
+      - redis_url
+      - deepseek_api_key
+      - minio_api_access_key
+      - minio_api_secret_key
+      - session_secret
+      - csrf_secret
+    volumes:
+      - type: bind
+        source: ${DATA_ROOT:?Set DATA_ROOT to an external data directory}/temp
+        target: /data/temp
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1770
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: !override
+      app_net:
+        ipv4_address: 172.31.71.3
+      data_net: {}
+      api_egress: {}
+
+  frontend:
+    profiles: ["development-only"]
+
+  edge:
+    restart: always
+    image: ecommerce-multiagent-edge:stage7-security-20260722
+    user: "10001:10001"
+    deploy:
+      resources:
+        limits: !reset null
+    init: true
+    cpus: "1.0"
+    mem_limit: 512m
+    mem_reservation: 128m
+    pids_limit: 256
+    stop_grace_period: 20s
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      nproc: 1024
+    ports: []
+    expose: ["80"]
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1770
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    cap_add: ["NET_BIND_SERVICE"]
+    networks: !override
+      app_net:
+        ipv4_address: 172.31.71.2
+
+  business-mcp:
+    restart: always
+    deploy:
+      resources:
+        limits: !reset null
+    user: "10001:10001"
+    init: true
+    cpus: "1.0"
+    mem_limit: 768m
+    mem_reservation: 256m
+    pids_limit: 256
+    stop_grace_period: 20s
+    ulimits:
+      nofile:
+        soft: 32768
+        hard: 32768
+      nproc: 1024
+    environment:
+      APP_ENV: production
+      DATABASE_URL: !reset null
+      DATABASE_URL_FILE: /run/secrets/database_url
+      REDIS_URL: !reset null
+      REDIS_URL_FILE: /run/secrets/redis_url
+    secrets: [database_url, redis_url]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1770"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: !override
+      - data_net
+
+  knowledge-mcp:
+    restart: always
+    deploy:
+      resources:
+        limits: !reset null
+    user: "10001:10001"
+    init: true
+    cpus: "1.0"
+    mem_limit: 768m
+    mem_reservation: 256m
+    pids_limit: 256
+    stop_grace_period: 20s
+    ulimits:
+      nofile:
+        soft: 32768
+        hard: 32768
+      nproc: 1024
+    environment:
+      APP_ENV: production
+      DATABASE_URL: !reset null
+      DATABASE_URL_FILE: /run/secrets/database_url
+      REDIS_URL: !reset null
+      REDIS_URL_FILE: /run/secrets/redis_url
+    secrets: [database_url, redis_url]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1770"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: !override
+      - data_net
+
+  media-mcp:
+    restart: always
+    deploy:
+      resources:
+        limits: !reset null
+    user: "10001:10001"
+    init: true
+    cpus: "1.0"
+    mem_limit: 768m
+    mem_reservation: 256m
+    pids_limit: 256
+    stop_grace_period: 20s
+    ulimits:
+      nofile:
+        soft: 32768
+        hard: 32768
+      nproc: 1024
+    environment:
+      APP_ENV: production
+      DATABASE_URL: !reset null
+      DATABASE_URL_FILE: /run/secrets/database_url
+      REDIS_URL: !reset null
+      REDIS_URL_FILE: /run/secrets/redis_url
+    secrets: [database_url, redis_url]
+    read_only: true
+    tmpfs: ["/tmp:size=64m,mode=1770"]
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: !override
+      - data_net
+
+  minio:
+    restart: always
+    deploy:
+      resources:
+        limits: !reset null
+    init: true
+    cpus: "1.0"
+    mem_limit: 2g
+    mem_reservation: 512m
+    pids_limit: 256
+    stop_grace_period: 45s
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      nproc: 1024
+    environment:
+      MINIO_ROOT_USER: !reset null
+      MINIO_ROOT_PASSWORD: !reset null
+      MINIO_ROOT_USER_FILE: /run/secrets/minio_root_user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+    secrets: [minio_root_user, minio_root_password]
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: !override
+      - data_net
+
+  worker-media:
+    restart: always
+    deploy:
+      resources:
+        limits: !reset null
+    init: true
+    cpus: "8.0"
+    mem_limit: 10g
+    pids_limit: 512
+    stop_grace_period: 60s
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+      nproc: 2048
+    environment:
+      APP_ENV: production
+      DATABASE_URL: !reset null
+      DATABASE_URL_FILE: /run/secrets/database_url
+      REDIS_URL: !reset null
+      REDIS_URL_FILE: /run/secrets/redis_url
+      MINIO_ACCESS_KEY: !reset null
+      MINIO_ACCESS_KEY_FILE: /run/secrets/minio_worker_access_key
+      MINIO_SECRET_KEY: !reset null
+      MINIO_SECRET_KEY_FILE: /run/secrets/minio_worker_secret_key
+    secrets:
+      - database_url
+      - redis_url
+      - minio_worker_access_key
+      - minio_worker_secret_key
+    read_only: true
+    tmpfs:
+      - /tmp:size=512m,mode=1770
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    networks: !override
+      - data_net
+
+volumes:
+  caddy_data:
+  caddy_config:
+
+networks:
+  app_net:
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.31.71.0/28
+  data_net:
+    driver: bridge
+    internal: true
+  api_egress:
+    driver: bridge
+
+secrets:
+  postgres_password:
+    file: ./secrets/production/postgres_password
+  redis_password:
+    file: ./secrets/production/redis_password
+  database_url:
+    file: ./secrets/production/database_url
+  redis_url:
+    file: ./secrets/production/redis_url
+  deepseek_api_key:
+    file: ./secrets/production/deepseek_api_key
+  minio_root_user:
+    file: ./secrets/production/minio_root_user
+  minio_root_password:
+    file: ./secrets/production/minio_root_password
+  minio_api_access_key:
+    file: ./secrets/production/minio_api_access_key
+  minio_api_secret_key:
+    file: ./secrets/production/minio_api_secret_key
+  minio_worker_access_key:
+    file: ./secrets/production/minio_worker_access_key
+  minio_worker_secret_key:
+    file: ./secrets/production/minio_worker_secret_key
+  session_secret:
+    file: ./secrets/production/session_secret
+  csrf_secret:
+    file: ./secrets/production/csrf_secret

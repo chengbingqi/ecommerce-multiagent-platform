@@ -1,0 +1,62 @@
+{
+	admin localhost:2019
+}
+
+(stage7_security_headers) {
+	header {
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy no-referrer
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+		Cross-Origin-Opener-Policy same-origin
+		Cross-Origin-Resource-Policy same-origin
+		-Server
+	}
+}
+
+# HSTS must be added only after real external HTTPS and hostname validation have passed.
+http://{$PUBLIC_DOMAIN} {
+	redir https://{host}{uri} permanent
+}
+
+https://{$PUBLIC_DOMAIN} {
+	encode zstd gzip
+	import stage7_security_headers
+
+	@hidden path /.git/* /.env* /secrets/* /backups/* /reports/* /docs/* /src/* /openapi.json /docs /redoc
+	respond @hidden 404
+
+	@upload path /api/v1/media/uploads/*
+	handle @upload {
+		request_body {
+			max_size 210MB
+		}
+		reverse_proxy api:8000 {
+			flush_interval -1
+			transport http {
+				read_timeout 30m
+				write_timeout 30m
+			}
+		}
+	}
+
+	@api path /api/*
+	handle @api {
+		request_body {
+			max_size 2MB
+		}
+		reverse_proxy api:8000 {
+			flush_interval -1
+			transport http {
+				read_timeout 10m
+				write_timeout 10m
+			}
+		}
+	}
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

@@ -1,0 +1,24 @@
+FROM python:3.12-alpine3.23@sha256:601d3d3797e90e2534782e69c85fafb7971b43f24c7b1b079b7e48dd435e458d AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+RUN addgroup -S -g 10001 app \
+    && adduser -S -D -H -u 10001 -G app app
+
+COPY backend/pyproject.toml ./pyproject.toml
+COPY backend/app ./app
+COPY backend/mcp_servers ./mcp_servers
+COPY backend/scripts ./scripts
+COPY alembic.ini ./alembic.ini
+COPY migrations ./migrations
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install --timeout 120 --retries 2 \
+    "pip==26.1.2" ".[stage2]"
+COPY data/manifests ./data/manifests
+
+USER app
+
+CMD ["python", "-m", "mcp_servers.business.server"]
