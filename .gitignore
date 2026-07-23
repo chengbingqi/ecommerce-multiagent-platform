@@ -1,0 +1,103 @@
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+secrets/
+.cloudflared/
+cloudflared/
+*tunnel-credentials*.json
+cert.pem
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Local agent/editor configuration
+AGENTS.md
+.agents/
+.codex/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Node.js and frontend build output
+node_modules/
+dist/
+build/
+frontend/.vite/
+coverage/
+*.tsbuildinfo
+
+# Runtime data, uploads, media, and model artifacts
+.local-data/
+data/*
+!data/manifests/
+!data/manifests/*.json
+uploads/
+media/
+models/
+weights/
+*.mp4
+*.mov
+*.webm
+*.avi
+*.mkv
+*.wav
+*.mp3
+*.flac
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.safetensors
+
+# Databases and backups
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.backup
+*.bak
+*.sql.gz
+backups/
+deploy/backup/output/
+
+# Logs, generated reports, and test output
+logs/
+*.log
+reports/
+evals/**/results/
+evals/stage5/ground_truth/
+
+# Host-specific or private working documents
+*.docx
+docs/*report*.md
+docs/network_download_speed_repair_report.md
+docs/public_demo_account.md
+docs/stage5_asr.md
+docs/stage5_asr_model_options.md
+scripts/delete_old_small_model_once.py
+
+# Temporary and operating-system files
+tmp/
+temp/
+*.tmp
+*.temp
+.cache/
+.DS_Store
+Thumbs.db
+.~lock.*#
