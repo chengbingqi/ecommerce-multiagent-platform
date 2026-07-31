@@ -1,6 +1,6 @@
-# 阶段5媒体 API 契约
+# 媒体 API 契约
 
-全部接口位于同源 `/api/v1`，正式认证留待阶段7；development/test 使用的 `principal_id` 只用于本地验收。
+全部接口位于同源 `/api/v1`。production 使用 Session 身份；development/test 可显式传入测试 Principal。
 
 - `POST /media/uploads`：登记上传与幂等键。
 - `PUT /media/uploads/{upload_id}`：流式写入请求体。

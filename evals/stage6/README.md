@@ -1,4 +1,4 @@
-# 阶段6固定评测
+# Orchestrator 固定评测
 
 `orchestrator_cases_v1.json` 固定 32 个 `case_id`，覆盖路由、缺参、权限、循环限制、有限重试、审批恢复、部分成功、SSE 续流、取消和媒体人工审核限制。
 

@@ -4,7 +4,7 @@
 
 `POST /api/v1/runs`
 
-请求必须显式包含：`agent_type=operations`、`store_id`、`start_date`、`end_date`、`topic`、`granularity`、`comparison_mode`、`principal_id`、`run_id`、`thread_id`、`trace_id`。日期采用 UTC 的 `[start,end)` 语义，`start_date < end_date`，最长 90 天。
+请求必须显式包含：`agent_type=operations`、`store_id`、`start_date`、`end_date`、`topic`、`granularity`、`comparison_mode`、`run_id`、`thread_id`、`trace_id`。日期采用 UTC 的 `[start,end)` 语义，`start_date < end_date`，最长 90 天。
 
 topic 支持 `OVERVIEW`、`SALES`、`INVENTORY`、`REFUNDS`、`CONVERSION`、`LOGISTICS`、`CAMPAIGN`、`UNKNOWN` 与 `FORBIDDEN_REQUEST`。
 
@@ -12,11 +12,11 @@ topic 支持 `OVERVIEW`、`SALES`、`INVENTORY`、`REFUNDS`、`CONVERSION`、`LO
 
 ## 查询运行
 
-`GET /api/v1/runs/{run_id}?principal_id=...`
+`GET /api/v1/runs/{run_id}`
 
 只允许运行所有者或 admin 查询。完成结果从 PostgreSQL checkpoint 恢复；跨用户返回稳定 `FORBIDDEN`，未知运行返回 `NOT_FOUND`。
 
-development/test 可使用 `principal_id` 做本地验收，这不是认证。production 中 `ENABLE_DEV_PRINCIPAL_INPUT=false`，正式认证属于阶段7。
+development/test 可显式传入测试 Principal；production 中 `ENABLE_DEV_PRINCIPAL_INPUT=false`，身份仅由服务端 Session 解析。
 
 ## 稳定版本
 

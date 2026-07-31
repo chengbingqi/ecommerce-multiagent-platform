@@ -1,6 +1,6 @@
 # 运营分析 Agent 架构
 
-阶段4提供独立的 `operations` LangGraph，不包含平台主控，也不与客服 Agent 自由通信。入口必须显式提交 `agent_type=operations`。
+独立的 `operations` LangGraph 不与客服 Agent 自由通信；直接运行时必须显式提交 `agent_type=operations`。
 
 ## 节点与条件边
 
@@ -19,4 +19,4 @@
 
 ## 持久化
 
-阶段4没有新增数据库表，Alembic head 仍为 `20260718_02`。每个 run、thread、trace 和 principal 稳定关联，完成结果及证据可在 API 容器重启后查询。
+运营图复用平台运行、事件和 checkpoint 表。每个 run、thread、trace 和 Principal 稳定关联，完成结果及证据可在 API 进程重启后查询。

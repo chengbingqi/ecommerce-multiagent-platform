@@ -50,7 +50,7 @@
 | `refund_eligible` | 符合退款资格演示 | `check_refund_eligibility` |
 | `refund_ineligible` | 不符合退款资格演示 | `check_refund_eligibility` |
 
-店铺1的固定seed没有显式`logistics_delay`标记；当前延迟演示选用店铺1中稳定存在、仍处于运输中的订单，并在演示任务中基于只读物流字段和预计送达时间解释延迟。没有修改Stage2 seed、订单、物流或Stage5数据。
+店铺1的固定 seed 没有显式 `logistics_delay` 标记；延迟演示选用该店铺中稳定存在、仍处于运输中的订单，并基于只读物流字段和预计送达时间解释延迟。演示清单不会修改基础 seed、订单、物流或媒体数据。
 
 ## 校验
 

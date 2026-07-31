@@ -1,6 +1,6 @@
-# 阶段2权限矩阵
+# MCP 工具权限矩阵
 
-角色与 scope 来自数据库 principal，工具参数不能声明或扩大 role。阶段2没有登录页面、Cookie 或正式 RBAC，也没有 dev principal header。
+角色与 scope 来自服务端 Principal，工具参数不能声明或扩大 role。登录 Session 只负责解析 Principal，MCP 层仍独立执行角色、店铺和对象范围校验。
 
 | 主体 | 允许范围 |
 | --- | --- |

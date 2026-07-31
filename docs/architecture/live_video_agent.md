@@ -1,6 +1,6 @@
-# 独立 live_video Agent
+# 直播切片 Agent 架构
 
-阶段5只新增 `live_video` 专业子图，不含主控路由，也不调用客服或运营工具。API 必须由客户端显式创建媒体任务。
+`live_video` 专业子图不调用客服或运营工具。独立运行时由客户端显式创建媒体任务；经主控调用时也必须有明确媒体意图和合法资产。
 
 图节点为 validate_request → resolve_principal → authorize_asset → inspect_asset → create_pipeline_task → enqueue_media_worker → interrupt_while_processing → resume_from_task_result → validate_candidates_and_qc → await_human_review → finalize_result。
 

@@ -1,4 +1,4 @@
-# Customer Service Agent State
+# 客服 Agent 状态模型
 
 状态中的稳定标识为 `run_id`、`thread_id`、`trace_id` 和服务端解析的 `principal_id`。输入字段包括受长度限制的 `message` 和可选 `order_id`。
 

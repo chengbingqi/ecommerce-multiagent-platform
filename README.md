@@ -26,6 +26,8 @@
 
 ![电商智能运营多Agent集群平台演示](docs/assets/ecommerce-multiagent-demo.gif)
 
+架构、API、安全、评测和运行手册统一收录在[项目文档索引](docs/README.md)。
+
 ## 核心功能
 
 - 统一工作台提交单 Agent 或复合任务，查看子任务、事件和汇总结果。
@@ -227,8 +229,7 @@ npm --prefix frontend run build
 git diff --check
 ```
 
-`live_llm`
-
+`live_llm` 与容器验收用例默认不会运行；它们需要显式配置外部模型或容器环境。
 
 
 

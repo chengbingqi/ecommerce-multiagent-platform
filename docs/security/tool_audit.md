@@ -1,4 +1,4 @@
-# 阶段2工具审计
+# MCP 工具审计
 
 每次进入工具执行内核的调用写入 `tool_call_audits`：tool call ID/name/version、run/task、agent、principal、store scope 摘要、白名单输入摘要、权限结果、起止时间、latency、status/error、retry count、evidence refs、side effect、approval、idempotency key 和 trace ID。
 

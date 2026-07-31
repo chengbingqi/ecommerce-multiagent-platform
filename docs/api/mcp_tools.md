@@ -1,4 +1,4 @@
-# 阶段2 MCP 工具契约
+# MCP 工具契约
 
 SDK 固定为官方 Python MCP `1.28.0`，传输为 stateless JSON Streamable HTTP，路径 `/mcp`。三个服务只在 Compose `backend` 内部网络可达，不经过 edge。
 
@@ -16,15 +16,15 @@ SDK 固定为官方 Python MCP `1.28.0`，传输为 stateless JSON Streamable HT
 - knowledge-mcp：`search_policy`、`retrieve_sop`、`get_document_chunk`
 - media-mcp：`probe_media`、`submit_transcription`、`detect_scenes`、`score_highlights`、`render_clip`、`save_asset`
 
-除 `probe_media` 外的媒体工具在阶段2保留正式 schema，但返回并审计 `FEATURE_NOT_ENABLED`。不运行 FFmpeg/ASR/GPU，不创建媒体文件。
+媒体工具的 `1.0.0` 契约保留兼容行为：除 `probe_media` 外返回并审计 `FEATURE_NOT_ENABLED`，不运行 FFmpeg/ASR/GPU，也不创建媒体文件。
 
 `create_refund_request` 必须提供 `idempotency_key` 和匹配主体、工具、digest、有效期的 `approval_id`。重复 key+digest 返回原结果；key 相同而 digest 不同返回 `IDEMPOTENCY_CONFLICT`。它永远不会把状态伪装成真实退款成功。
 
-证据格式使用 `db://table/id`、`doc://doc/version/chunk`、`sop://id/version` 或 `manifest://...`，阶段3可稳定反查。
+证据格式使用 `db://table/id`、`doc://doc/version/chunk`、`sop://id/version` 或 `manifest://...`，可由服务端稳定反查。
 
-## 阶段5 media-mcp 兼容扩展
+## media-mcp `1.1.0` 兼容扩展
 
-阶段5新增 `1.1.0` 输入契约，阶段2 `1.0.0` 不变：旧版 `probe_media` 继续读取固定 manifest，旧版其余媒体工具仍返回 `FEATURE_NOT_ENABLED`。新版工具只接收服务端资产/任务标识，不接收 URL、路径、object key、命令或凭据。
+`1.1.0` 输入契约不改变 `1.0.0`：旧版 `probe_media` 继续读取固定 manifest，旧版其余媒体工具仍返回 `FEATURE_NOT_ENABLED`。新版工具只接收服务端资产/任务标识，不接收 URL、路径、object key、命令或凭据。
 
 - `probe_media@1.1.0`：返回已授权资产的探测结果。
 - `submit_transcription@1.1.0`：查询异步任务和 transcript_ref。

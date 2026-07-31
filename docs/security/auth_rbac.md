@@ -1,4 +1,4 @@
-# Stage7认证、会话与RBAC
+# 认证、会话与 RBAC
 
 ## 会话
 
@@ -9,7 +9,7 @@
 - 登录错误统一返回“用户名或密码错误”，连续5次失败默认锁定15分钟。
 - CSRF Token与Session绑定，只通过登录/独立CSRF响应返回，并由前端放入`X-CSRF-Token`；不进入URL、日志或SSE。
 
-production同时要求`APP_ENV=production`、`ENABLE_DEV_PRINCIPAL_INPUT=false`和`ENFORCE_STAGE7_SECURITY=true`。客户端在请求体、查询或Header中自报`principal_id`会被拒绝。development/test仍保留原显式principal方式，Stage6内部Schema未改变。
+production 同时要求 `APP_ENV=production`、`ENABLE_DEV_PRINCIPAL_INPUT=false` 和 `ENFORCE_STAGE7_SECURITY=true`。客户端在请求体、查询或 Header 中自报 `principal_id` 会被拒绝；development/test 保留显式测试 Principal 方式。
 
 ## 权限矩阵
 
@@ -20,7 +20,7 @@ production同时要求`APP_ENV=production`、`ENABLE_DEV_PRINCIPAL_INPUT=false`�
 | store_operator | 自身store的只读运营指标/run | 客服写动作、媒体、跨store、审批、管理 |
 | content_operator | 自身owner/store的上传、媒体任务、候选、审核、下载 | 跨owner/store、自动发布、真值/边界调整 |
 | approver | 明确授权store范围内、未过期且digest一致的一次性审批 | 跨store、普通工作台管理、评测 |
-| admin | 用户授权、配额及必要管理操作 | 仍受审计、CSRF、限流和Stage5禁止自动发布约束 |
+| admin | 用户授权、配额及必要管理操作 | 仍受审计、CSRF、限流和媒体禁止自动发布约束 |
 
 对象归属由服务端针对`run_id/thread_id/subtask_id/order_id/store_id/approval_id/asset_id/task_id/candidate_id/download/SSE`检查。对象越权返回403或不泄露存在性的404。前端隐藏按钮不是授权机制。
 
